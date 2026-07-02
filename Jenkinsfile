@@ -50,9 +50,7 @@ timestamps {
 
       stage('Integration tests') {
         def ampDir = "${WORKSPACE}/.amp"
-        def cacheDir = "${WORKSPACE}/.civibuild-cache"
         def cacheKey = "php${env.PHP_VERSION}-civi${env.CIVICRM_VERSION}"
-        def cacheFile = "${cacheDir}/${cacheKey}.tar.gz"
         def extDir = "/buildkit/build/${cachedBuildName}/web/ext/de_cipico_saldap"
         def buildDir = "/buildkit/build/${cachedBuildName}"
 
@@ -71,8 +69,14 @@ parameters:
 services: {  }
 """
 
+        // Cache volume persists across branches and workspace cleans
+        sh "docker volume inspect saldap-civibuild-cache >/dev/null 2>&1 || docker volume create saldap-civibuild-cache"
+        def cacheMount = "saldap-civibuild-cache:/cache"
+        def cacheDir = "/cache/${cacheKey}"
+
         // Check for cached build
-        def cacheHit = fileExists(cacheFile)
+        sh "docker run --rm --entrypoint '' -v ${cacheMount} ${baseImage} test -d ${cacheDir} 2>/dev/null"
+        def cacheHit = (sh(script: "docker run --rm --entrypoint '' -v ${cacheMount} ${baseImage} test -d ${cacheDir}", returnStatus: true) == 0)
         echo "Civibuild cache ${cacheKey}: ${cacheHit ? 'HIT' : 'MISS'}"
 
         sh "docker rm -f saldap-mysql-${BUILD_NUMBER} saldap-app-${BUILD_NUMBER} 2>/dev/null; true"
@@ -86,6 +90,7 @@ services: {  }
           "--entrypoint /usr/bin/env \\" +
           "-e HOME=/tmp -e AMPHOME=${ampDir} \\" +
           "-v ${WORKSPACE}:${WORKSPACE}:rw \\" +
+          "-v saldap-civibuild-cache:/cache \\" +
           "-v saldap-git-cache:/buildkit/app/tmp/git-cache \\" +
           "-v saldap-composer-cache:/buildkit/.composer \\" +
           "${baseImage} tail -f /dev/null"
@@ -103,17 +108,17 @@ services: {  }
             sh "${dockerPrefix} civibuild create ${cachedBuildName} --type standalone-clean --civi-ver ${env.CIVICRM_VERSION} --url http://localhost --force"
 
             echo '=== Saving build cache ==='
-            sh "mkdir -p ${cacheDir}"
-            sh "${dockerPrefix} tar czf ${cacheFile} -C /buildkit/build ${cachedBuildName}"
-            sh "${dockerPrefix} tar czf ${cacheDir}/${cacheKey}-buildcfg.tar.gz -C /buildkit . build/${cachedBuildName}.sh"
-            sh "${dockerPrefix} tar czf ${cacheDir}/${cacheKey}-snapshots.tar.gz -C /buildkit/app/snapshot ${cachedBuildName}"
+            sh "${dockerPrefix} mkdir -p ${cacheDir}"
+            sh "${dockerPrefix} tar czf ${cacheDir}/build.tar.gz -C /buildkit/build ${cachedBuildName}"
+            sh "${dockerPrefix} tar czf ${cacheDir}/buildcfg.tar.gz -C /buildkit . build/${cachedBuildName}.sh"
+            sh "${dockerPrefix} tar czf ${cacheDir}/snapshots.tar.gz -C /buildkit/app/snapshot ${cachedBuildName}"
           }
           else {
             echo '=== Restoring cached CiviCRM build (cache HIT) ==='
             sh "${dockerPrefix} mkdir -p /buildkit/build /buildkit/app/snapshot"
-            sh "${dockerPrefix} tar xzf ${cacheFile} -C /buildkit/build"
-            sh "${dockerPrefix} tar xzf ${cacheDir}/${cacheKey}-buildcfg.tar.gz -C /buildkit"
-            sh "${dockerPrefix} tar xzf ${cacheDir}/${cacheKey}-snapshots.tar.gz -C /buildkit/app/snapshot"
+            sh "${dockerPrefix} tar xzf ${cacheDir}/build.tar.gz -C /buildkit/build"
+            sh "${dockerPrefix} tar xzf ${cacheDir}/buildcfg.tar.gz -C /buildkit"
+            sh "${dockerPrefix} tar xzf ${cacheDir}/snapshots.tar.gz -C /buildkit/app/snapshot"
 
             echo '=== Restoring DB from cached snapshots ==='
             sh "${dockerPrefix} civibuild restore ${cachedBuildName} --force"
