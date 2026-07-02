@@ -44,8 +44,8 @@ use Civi\Api4\Generic\Result;
  */
 class Set extends AbstractAction {
 
-  public function __construct() {
-    parent::__construct();
+  public function __construct(string $entityName, string $actionName) {
+    parent::__construct($entityName, $actionName);
     foreach (self::settingNames() as $name) {
       $meta = self::settingMeta($name);
       $param = $this->createParam($name, $meta['data_type'], FALSE)
