@@ -135,6 +135,7 @@ foreach (['CMS_DB_DSN', 'CIVI_DB_DSN', 'TEST_DB_DSN'] as \$k) {
 SCRIPT"""
             sh "docker exec saldap-app-${BUILD_NUMBER} zcat /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz | mysql -h mysql -u root -pbuildkit"
             echo 'Restore complete'
+          }
 
           def ciSettings = "${buildDir}/web/private/civicrm.settings.php"
 
