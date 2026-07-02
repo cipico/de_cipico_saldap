@@ -15,6 +15,10 @@ timestamps {
         checkout scm
       }
 
+      stage('Lint PHP') {
+        sh 'find . -name "*.php" -not -path "./vendor/*" -not -path "./.git/*" -exec php -l {} \\;'
+      }
+
       stage('Resolve versions') {
         def infoXml = readFile('info.xml')
 
@@ -44,7 +48,6 @@ timestamps {
         def extDir = "/buildkit/build/${buildName}/web/ext/de_cipico_saldap"
         def ampDir = "${WORKSPACE}/.amp"
 
-        // Write amp config to workspace (writable by Jenkins user)
         writeFile file: "${ampDir}/services.yml", text: """\
 parameters:
     version: 2
@@ -78,9 +81,10 @@ services: {  }
               sh "cv ext:enable de_cipico_saldap"
 
               echo '=== Running PHPUnit tests ==='
-              // Use the phpunit phar directly (not the wrapper) to avoid
-              // the wrapper chdir'ing to civicrm-core and running core tests.
-              sh "env CIVICRM_UF=UnitTests php /buildkit/extern/phpunit8/phpunit8.phar --configuration ${extDir}/phpunit.xml.dist ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${WORKSPACE}/saldap-test-report.xml"
+              sh "env CIVICRM_UF=UnitTests php /buildkit/extern/phpunit8/phpunit8.phar" +
+                " --configuration ${extDir}/phpunit.xml.dist" +
+                " ${extDir}/tests/phpunit/Api4/SaldapTest.php" +
+                " --log-junit ${WORKSPACE}/saldap-test-report.xml"
 
               echo '=== Tests completed successfully ==='
             }
