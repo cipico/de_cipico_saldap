@@ -133,7 +133,7 @@ foreach (['CMS_DB_DSN', 'CIVI_DB_DSN', 'TEST_DB_DSN'] as \$k) {
 }
 \$pdo->exec('FLUSH PRIVILEGES');
 SCRIPT"""
-            sh "docker exec saldap-app-${BUILD_NUMBER} zcat /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz | mysql -h mysql -u root -pbuildkit"
+            sh "docker exec saldap-app-${BUILD_NUMBER} bash -c 'zcat /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz | mysql -h mysql -u root -pbuildkit'"
             echo 'Restore complete'
           }
 
