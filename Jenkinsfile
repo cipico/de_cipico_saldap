@@ -86,6 +86,8 @@ services: {  }
         def maxWait = 30
 
         try {
+          def ciSettings = "/buildkit/build/${buildName}/web/civicrm.settings.php"
+
           sh "${dockerPrefix} git config --global --add safe.directory '*'"
 
           echo '=== Creating CiviCRM build ==='
@@ -94,12 +96,14 @@ services: {  }
           echo '=== Symlinking extension ==='
           sh "${dockerPrefix} ln -sf ${WORKSPACE} ${extDir}"
 
+          echo '=== Verifying settings file ==='
+          sh "docker exec saldap-app-${BUILD_NUMBER} test -f ${ciSettings} || docker exec saldap-app-${BUILD_NUMBER} sh -c 'find /buildkit/build/${buildName} -name civicrm.settings.php 2>/dev/null'"
+
           echo '=== Enabling extension ==='
-          sh "docker exec -u 0:0 -w /buildkit/build/${buildName}/web saldap-app-${BUILD_NUMBER} cv ext:enable de_cipico_saldap"
+          sh "docker exec -u 0:0 -e CIVICRM_SETTINGS=${ciSettings} -w /buildkit/build/${buildName}/web saldap-app-${BUILD_NUMBER} cv ext:enable de_cipico_saldap"
 
           echo '=== Running PHPUnit tests ==='
-          def ciSettings = "/buildkit/build/${buildName}/web/civicrm.settings.php"
-          sh "docker exec -u 0:0 -w ${extDir} saldap-app-${BUILD_NUMBER} env CIVICRM_SETTINGS=${ciSettings} CIVICRM_UF=UnitTests php /buildkit/extern/phpunit8/phpunit8.phar --configuration ${extDir}/phpunit.xml.dist ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${WORKSPACE}/saldap-test-report.xml"
+          sh "docker exec -u 0:0 -e CIVICRM_SETTINGS=${ciSettings} -e CIVICRM_UF=UnitTests -w ${extDir} saldap-app-${BUILD_NUMBER} php /buildkit/extern/phpunit8/phpunit8.phar --configuration ${extDir}/phpunit.xml.dist ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${WORKSPACE}/saldap-test-report.xml"
 
           echo '=== Tests completed successfully ==='
         }
