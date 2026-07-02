@@ -65,7 +65,7 @@ services: {  }
           ) {
             try {
               echo '=== PHP syntax check ==='
-              sh "find ${WORKSPACE} -name '*.php' -not -path '${WORKSPACE}/vendor/*' -exec php -l {} \\;"
+              sh "find ${WORKSPACE} -name '*.php' -not -path '${WORKSPACE}/vendor/*' -exec php -l {} \\; 2>&1 | grep -E '^(Parse|Fatal) error' && exit 1 || echo 'All PHP files passed syntax check'"
 
               sh 'git config --global --add safe.directory "*"'
 
