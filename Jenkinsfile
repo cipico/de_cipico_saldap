@@ -112,8 +112,7 @@ services: {  }
           }
           else {
             echo '=== Restoring DB from cached config + snapshots (cache HIT) ==='
-            sh "docker cp ${WORKSPACE}/docker/restore-db.sh saldap-app-${BUILD_NUMBER}:/tmp/"
-            sh "docker exec -u 0:0 saldap-app-${BUILD_NUMBER} bash /tmp/restore-db.sh ${cachedBuildName} saldap-app-${BUILD_NUMBER} saldap-mysql-${BUILD_NUMBER}"
+            sh "bash ${WORKSPACE}/docker/restore-db.sh ${cachedBuildName} saldap-app-${BUILD_NUMBER} saldap-mysql-${BUILD_NUMBER}"
           }
 
           def ciSettings = "${buildDir}/web/private/civicrm.settings.php"
