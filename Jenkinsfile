@@ -11,8 +11,12 @@ node('master') {
       def infoXml = readFile('info.xml')
       def info = new XmlSlurper(false, false).parseText(infoXml)
       def civicrmVersion = params.CIVICRM_VERSION ?: info.compatibility.ver.text()
-      def phpVersions = info.php_compatibility.ver*.text()
-      def phpVersion = params.PHP_VERSION ?: phpVersions.last()
+      def phpVersionNodes = info.php_compatibility.ver
+      def allPhpVersions = []
+      for (ver in phpVersionNodes) {
+        allPhpVersions.add(ver.text())
+      }
+      def phpVersion = params.PHP_VERSION ?: allPhpVersions.last()
 
       env.CIVICRM_VERSION = civicrmVersion
       env.PHP_VERSION = phpVersion
