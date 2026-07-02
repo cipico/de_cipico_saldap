@@ -166,4 +166,58 @@ class Api4_SaldapTest extends \PHPUnit\Framework\TestCase implements Transaction
     }
   }
 
+  public function testSyncRolesWithMalformedMappings(): void {
+    // Create a test user
+    $contactId = \Civi\Api4\Contact::create(FALSE)
+      ->addValue('contact_type', 'Individual')
+      ->addValue('first_name', 'SyncTest')
+      ->addValue('last_name', 'User')
+      ->execute()->single()['id'];
+
+    $userId = \Civi\Api4\User::create(FALSE)
+      ->addValue('username', 'synctest_' . bin2hex(random_bytes(4)))
+      ->addValue('contact_id', $contactId)
+      ->addValue('password', 'testpass')
+      ->execute()->single()['id'];
+
+    $ldap = new CRM_DeCipicoSaldap_Ldap();
+
+    $groups = [
+      'cn=employees,ou=groups,dc=example,dc=com',
+      'cn=admins,ou=groups,dc=example,dc=com',
+    ];
+
+    // Test 1: \r\n line endings are handled by trim() so they SHOULD match
+    \Civi::settings()->set('saldap_ldap_role_mappings', "cn=employees,ou=groups,dc=example,dc=com|3\r\ncn=admins,ou=groups,dc=example,dc=com|2");
+    $ldap->syncRoles($userId, ['groups' => $groups]);
+    $userAfter = \Civi\Api4\User::get(FALSE)
+      ->addWhere('id', '=', $userId)
+      ->addSelect('roles')
+      ->execute()->first();
+    $this->assertContains('3', $userAfter['roles'] ?? [], 'CRLF line endings should match (trim handles \\r)');
+
+    // Test 2: Doubled ou=groups should NOT match
+    \Civi\Api4\User::update(FALSE)
+      ->addWhere('id', '=', $userId)
+      ->addValue('roles', [])
+      ->execute();
+    \Civi::settings()->set('saldap_ldap_role_mappings', "cn=employees,ou=groups,ou=groups,dc=example,dc=com|3");
+    $ldap->syncRoles($userId, ['groups' => $groups]);
+    $userAfter2 = \Civi\Api4\User::get(FALSE)
+      ->addWhere('id', '=', $userId)
+      ->addSelect('roles')
+      ->execute()->first();
+    $this->assertSame([], $userAfter2['roles'] ?? [], 'Doubled ou=groups should not match');
+
+    // Test 3: Correct LF line endings should match
+    \Civi::settings()->set('saldap_ldap_role_mappings', "cn=employees,ou=groups,dc=example,dc=com|3\ncn=admins,ou=groups,dc=example,dc=com|2");
+    $ldap->syncRoles($userId, ['groups' => $groups]);
+    $userAfter3 = \Civi\Api4\User::get(FALSE)
+      ->addWhere('id', '=', $userId)
+      ->addSelect('roles')
+      ->execute()->first();
+    $this->assertContains('3', $userAfter3['roles'] ?? [], 'Employee role should match with LF');
+    $this->assertContains('2', $userAfter3['roles'] ?? [], 'Admin role should match with LF');
+  }
+
 }

@@ -91,8 +91,14 @@ class CRM_DeCipicoSaldap_Ldap {
             ->addWhere('id', '=', $existing['contact_id'])
             ->addValue('first_name', $ldapAttrs['first_name'] ?: $username)
             ->addValue('last_name', $ldapAttrs['last_name'] ?: $username)
-            ->addValue('email', $ldapAttrs['mail'])
             ->execute();
+          if (!empty($ldapAttrs['mail'])) {
+            \Civi\Api4\Email::create(FALSE)
+              ->addValue('contact_id', $existing['contact_id'])
+              ->addValue('email', $ldapAttrs['mail'])
+              ->addValue('location_type_id', 1)
+              ->execute();
+          }
         }
         catch (\Exception $e) {
           $this->log(self::LEVEL_WARNING, 'Failed to sync contact for existing user {username}: {error}', [
@@ -110,29 +116,83 @@ class CRM_DeCipicoSaldap_Ldap {
     }
 
     try {
-      $contactId = ContactApi::create(FALSE)
-        ->addValue('contact_type', 'Individual')
-        ->addValue('first_name', $ldapAttrs['first_name'] ?: $username)
-        ->addValue('last_name', $ldapAttrs['last_name'] ?: $username)
-        ->addValue('email', $ldapAttrs['mail'])
-        ->execute()
-        ->single()['id'];
+      $contactId = NULL;
+      // Try to find existing contact by email first
+      if (!empty($ldapAttrs['mail'])) {
+        $existingEmail = \Civi\Api4\Email::get(FALSE)
+          ->addWhere('email', '=', $ldapAttrs['mail'])
+          ->addSelect('contact_id')
+          ->execute()
+          ->first();
+        if ($existingEmail) {
+          $contactId = (int) $existingEmail['contact_id'];
+        }
+      }
+      // Fall back to looking up by name
+      if ($contactId === NULL && !empty($ldapAttrs['first_name'])) {
+        $existingContact = ContactApi::get(FALSE)
+          ->addWhere('first_name', '=', $ldapAttrs['first_name'])
+          ->addWhere('last_name', '=', $ldapAttrs['last_name'])
+          ->addSelect('id')
+          ->execute()
+          ->first();
+        if ($existingContact) {
+          $contactId = (int) $existingContact['id'];
+        }
+      }
+
+      if ($contactId === NULL) {
+        try {
+          $createdContact = ContactApi::create(FALSE)
+            ->addValue('contact_type', 'Individual')
+            ->addValue('first_name', $ldapAttrs['first_name'] ?: $username)
+            ->addValue('last_name', $ldapAttrs['last_name'] ?: $username)
+            ->execute()
+            ->single();
+          $contactId = (int) $createdContact['id'];
+        }
+        catch (\Exception $e) {
+          $this->log(self::LEVEL_ERROR, 'Failed to create contact for {username}: {error}', [
+            'username' => $username,
+            'error' => $e->getMessage(),
+          ]);
+          return NULL;
+        }
+        if (!empty($ldapAttrs['mail'])) {
+          try {
+            \Civi\Api4\Email::create(FALSE)
+              ->addValue('contact_id', $contactId)
+              ->addValue('email', $ldapAttrs['mail'])
+              ->addValue('location_type_id', 1)
+              ->execute();
+          }
+          catch (\Exception $e) {
+            $this->log(self::LEVEL_WARNING, 'Failed to set email for contact {cid}: {error}', [
+              'cid' => $contactId,
+              'error' => $e->getMessage(),
+            ]);
+          }
+        }
+      }
+
+      if ($contactId === NULL) {
+        $this->log(self::LEVEL_ERROR, 'Failed to resolve contact for user {username}', ['username' => $username]);
+        return NULL;
+      }
+      // Remove any stale UFMatch that might conflict with the new user
+      $ufName = $ldapAttrs['mail'] ?: $username;
+      \Civi\Api4\UFMatch::delete(FALSE)
+        ->addWhere('uf_name', '=', $ufName)
+        ->execute();
 
       $password = $password ?: bin2hex(random_bytes(16));
       $userId = UserApi::create(FALSE)
         ->addValue('username', $username)
-        ->addValue('uf_name', $ldapAttrs['mail'] ?: $username)
+        ->addValue('uf_name', $ufName)
         ->addValue('contact_id', $contactId)
         ->addValue('password', $password)
         ->execute()
         ->single()['id'];
-
-      CRM_Core_BAO_UFMatch::create([
-        'uf_id' => $userId,
-        'uf_name' => $ldapAttrs['mail'] ?: $username,
-        'contact_id' => $contactId,
-        'domain_id' => CRM_Core_Config::domainID(),
-      ]);
 
       $this->log(self::LEVEL_INFO, 'Auto-created CiviCRM user {username} (uid={userId}, cid={contactId})', [
         'username' => $username,
