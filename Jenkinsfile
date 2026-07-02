@@ -104,40 +104,19 @@ services: {  }
 
             echo '=== Saving build cache ==='
             sh "mkdir -p ${cacheDir}"
-            sh "${dockerPrefix} tar czf ${WORKSPACE}/.civibuild-cache/${cacheKey}.tar.gz -C /buildkit/build ${cachedBuildName}"
-
-            echo '=== Caching DB snapshots ==='
-            sh "${dockerPrefix} tar czf ${WORKSPACE}/.civibuild-cache/${cacheKey}-snapshots.tar.gz -C /buildkit/app/snapshot ${cachedBuildName}"
+            sh "${dockerPrefix} tar czf ${cacheFile} -C /buildkit/build ${cachedBuildName}"
+            sh "${dockerPrefix} tar czf ${cacheDir}/${cacheKey}-buildcfg.tar.gz -C /buildkit . build/${cachedBuildName}.sh"
+            sh "${dockerPrefix} tar czf ${cacheDir}/${cacheKey}-snapshots.tar.gz -C /buildkit/app/snapshot ${cachedBuildName}"
           }
           else {
             echo '=== Restoring cached CiviCRM build (cache HIT) ==='
             sh "${dockerPrefix} mkdir -p /buildkit/build /buildkit/app/snapshot"
             sh "${dockerPrefix} tar xzf ${cacheFile} -C /buildkit/build"
+            sh "${dockerPrefix} tar xzf ${cacheDir}/${cacheKey}-buildcfg.tar.gz -C /buildkit"
             sh "${dockerPrefix} tar xzf ${cacheDir}/${cacheKey}-snapshots.tar.gz -C /buildkit/app/snapshot"
 
-            echo '=== Restoring DB users and data ==='
-            // Create DB users and databases, then import SQL dump into the Civi DB
-            sh """docker exec saldap-app-${BUILD_NUMBER} php << 'SCRIPT'
-<?php
-require '${buildDir}/web/private/civicrm.settings.php';
-\$pdo = new PDO('mysql:host=mysql', 'root', 'buildkit');
-\$dbName = '';
-foreach (['CMS_DB_DSN', 'CIVI_DB_DSN', 'TEST_DB_DSN'] as \$k) {
-  \$d = parse_url(\$GLOBALS['_CV'][\$k]);
-  \$db = ltrim(\$d['path'], '/');
-  \$u = \$d['user'];
-  \$p = \$d['pass'];
-  \$pdo->exec("CREATE USER IF NOT EXISTS \$u@'%' IDENTIFIED BY '\$p'");
-  \$pdo->exec('CREATE DATABASE IF NOT EXISTS ' . \$db);
-  \$pdo->exec("GRANT ALL ON " . \$db . ".* TO \$u@'%'");
-  if (\$k === 'CIVI_DB_DSN') { \$dbName = \$db; }
-  echo "OK \$u@\$db\n";
-}
-\$pdo->exec('FLUSH PRIVILEGES');
-echo "CIVI_DB=\$dbName\n";
-SCRIPT"""
-            sh "CIVI_DB=\$(docker exec saldap-app-${BUILD_NUMBER} grep 'CIVI_DB_DSN' ${buildDir}/web/private/civicrm.settings.php | awk -F/ '{print \$4}' | cut -d? -f1) && docker exec saldap-app-${BUILD_NUMBER} zcat /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz | docker exec -i saldap-mysql-${BUILD_NUMBER} mysql -u root -pbuildkit \"\$CIVI_DB\""
-            echo 'Restore complete'
+            echo '=== Restoring DB from cached snapshots ==='
+            sh "${dockerPrefix} civibuild restore ${cachedBuildName} --force"
           }
 
           def ciSettings = "${buildDir}/web/private/civicrm.settings.php"
