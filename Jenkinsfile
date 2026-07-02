@@ -62,7 +62,7 @@ services: {  }
 
         docker.image(mysqlImage).withRun('-e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql') { mysql ->
           docker.image(imageName).inside(
-            "--link ${mysql.id}:mysql -e AMPHOME=${ampDir}"
+            "--link ${mysql.id}:mysql --entrypoint /usr/bin/env -e AMPHOME=${ampDir}"
           ) {
             try {
               sh 'git config --global --add safe.directory "*"'
