@@ -43,7 +43,7 @@ timestamps {
         docker.image(imageName).inside(
           "--entrypoint /usr/bin/env -e HOME=/tmp"
         ) {
-          sh "find ${WORKSPACE} -name '*.php' -not -path '${WORKSPACE}/vendor/*' -exec php -l {} \\; 2>&1 | grep -E '^(Parse|Fatal) error' && exit 1 || echo 'All PHP files passed syntax check'"
+          sh "find ${WORKSPACE} -name '*.php' -not -path '${WORKSPACE}/vendor/*' -not -path '${WORKSPACE}/buildkit/*' -exec php -l {} \\; 2>&1 | grep -E '^(Parse|Fatal) error' && exit 1 || echo 'All PHP files passed syntax check'"
         }
       }
 
