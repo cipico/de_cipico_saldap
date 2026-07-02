@@ -101,6 +101,9 @@ services: {  }
         def buildDir = "/buildkit/build/${cachedBuildName}"
 
         try {
+          // Wait for MySQL to be ready (up to 30s)
+          sh "for i in \$(seq 1 30); do docker exec saldap-mysql-${BUILD_NUMBER} mysqladmin ping -h localhost -u root -pbuildkit --silent 2>/dev/null && break; sleep 1; done"
+
           sh "${dockerPrefix} git config --global --add safe.directory '*'"
 
           if (!cacheHit) {
@@ -110,7 +113,8 @@ services: {  }
             sh "docker commit saldap-app-${BUILD_NUMBER} ${cachedImage}"
           }
           else {
-            echo '=== Using cached CiviCRM build (cache HIT) ==='
+            echo '=== Restoring DB snapshots from cache (cache HIT) ==='
+            sh "${dockerPrefix} civibuild restore ${cachedBuildName} --force"
           }
 
           def ciSettings = "${buildDir}/web/private/civicrm.settings.php"
