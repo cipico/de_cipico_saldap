@@ -33,7 +33,7 @@ node('master') {
     def mysqlArgs = "-e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=civicrm" +
       " -e MYSQL_USER=civicrm -e MYSQL_PASSWORD=civicrm --tmpfs /var/lib/mysql"
     docker.image('mysql:8.0').withRun(mysqlArgs) { mysql ->
-      docker.image(imageName).inside("--link ${mysql.id}:mysql -v ${WORKSPACE}:/workspace") {
+      docker.image(imageName).inside("--link ${mysql.id}:mysql --entrypoint=''") {
         def buildName = "saldap_build_${BUILD_NUMBER}"
         def extDir = "/opt/buildkit/build/${buildName}/sites/default/ext/de_cipico_saldap"
 
