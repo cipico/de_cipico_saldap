@@ -75,10 +75,6 @@ class Set extends AbstractAction {
     ];
   }
 
-  private function paramExists(string $name): bool {
-    return array_key_exists($name, $this->getParamValues());
-  }
-
   /**
    * @return list<string>
    */
