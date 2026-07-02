@@ -1,14 +1,8 @@
-def imageName = 'cipico/civicrm-buildkit:latest'
+def imageName = 'michaelmcandrew/civicrm-buildkit:php8.2'
 
 node('master') {
   stage('Checkout') {
     checkout scm
-  }
-
-  stage('Build Docker image') {
-    dir('docker') {
-      sh "docker build -t ${imageName} -f Dockerfile ."
-    }
   }
 
   stage('Resolve versions') {
@@ -43,20 +37,16 @@ node('master') {
       '-e', 'MYSQL_PASSWORD=civicrm',
       '--tmpfs', '/var/lib/mysql'
     ]) { mysql ->
-      docker.image(imageName).inside(
-        "--link ${mysql.id}:mysql -v ${WORKSPACE}:/workspace"
-      ) {
+      docker.image(imageName).inside("--link ${mysql.id}:mysql") {
         def buildName = "saldap_build_${BUILD_NUMBER}"
         def extDir = "/opt/buildkit/build/${buildName}/sites/default/ext/de_cipico_saldap"
 
         sh "civibuild create ${buildName} --type standalone" +
-          " --version ${env.CIVICRM_VERSION}" +
-          " --php ${env.PHP_VERSION}" +
-          " --civi-ver ${env.CIVICRM_VERSION}" +
-          " --url http://localhost" +
+          " --version ${env.CIVICRM_VERSION} --php ${env.PHP_VERSION}" +
+          " --civi-ver ${env.CIVICRM_VERSION} --url http://localhost" +
           " --db mysql://civicrm:civicrm@mysql/civicrm"
 
-        sh "ln -sf /workspace ${extDir}"
+        sh "ln -sf ${WORKSPACE} ${extDir}"
 
         sh "cv ext:enable de_cipico_saldap"
 
