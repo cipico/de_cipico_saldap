@@ -78,7 +78,10 @@ services: {  }
               sh "cv ext:enable de_cipico_saldap"
 
               echo '=== Running PHPUnit tests ==='
-              sh "env CIVICRM_UF=UnitTests phpunit8 ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${extDir}/phpunit-report.xml"
+              // Use the phpunit phar directly (not the wrapper) to avoid
+              // directory-changes that cause core tests to be picked up.
+              sh "rm -f ${WORKSPACE}/phpunit-*.xml"
+              sh "env CIVICRM_UF=UnitTests php /buildkit/extern/phpunit8/phpunit8.phar --configuration ${extDir}/phpunit.xml.dist ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${WORKSPACE}/phpunit-report.xml"
 
               echo '=== Tests completed successfully ==='
             }
