@@ -9,17 +9,25 @@ node('master') {
 
     stage('Resolve versions') {
       def infoXml = readFile('info.xml')
-      def info = new XmlSlurper(false, false).parseText(infoXml)
-      def civicrmVersion = params.CIVICRM_VERSION ?: info.compatibility.ver.text()
-      def phpVersionNodes = info.php_compatibility.ver
-      def allPhpVersions = []
-      for (ver in phpVersionNodes) {
-        allPhpVersions.add(ver.text())
-      }
-      def phpVersion = params.PHP_VERSION ?: allPhpVersions.last()
 
-      env.CIVICRM_VERSION = civicrmVersion
-      env.PHP_VERSION = phpVersion
+      def civicrmVersion = '6.13'
+      def matcher = infoXml =~ '<compatibility[^>]*>.*?<ver>([^<]+)<\\/ver>'
+      if (matcher.find()) {
+        civicrmVersion = matcher.group(1)
+      }
+
+      def phpVersion = '8.2'
+      def phpMatcher = infoXml =~ '<php_compatibility[^>]*>.*?<ver>([^<]+)<\\/ver>'
+      def allPhp = []
+      while (phpMatcher.find()) {
+        allPhp.push(phpMatcher.group(1))
+      }
+      if (!allPhp.isEmpty()) {
+        phpVersion = allPhp.last()
+      }
+
+      env.CIVICRM_VERSION = params.CIVICRM_VERSION ?: civicrmVersion
+      env.PHP_VERSION = params.PHP_VERSION ?: phpVersion
 
       echo "Using CiviCRM ${env.CIVICRM_VERSION}, PHP ${env.PHP_VERSION}"
     }
