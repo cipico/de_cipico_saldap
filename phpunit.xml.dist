@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<phpunit bootstrap="tests/phpunit/bootstrap.php" colors="true">
+  <testsuites>
+    <testsuite name="de_cipico_saldap">
+      <directory>./tests/phpunit</directory>
+    </testsuite>
+  </testsuites>
+  <listeners>
+    <listener class="Civi\Test\CiviTestListener">
+      <arguments/>
+    </listener>
+  </listeners>
+</phpunit>

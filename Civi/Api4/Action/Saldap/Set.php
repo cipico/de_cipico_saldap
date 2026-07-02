@@ -14,43 +14,13 @@ use Civi\Api4\Generic\Result;
  *
  * Usage:
  *
- *   echo '{
- *     "saldap_ldap_host": "ldap.example.com",
- *     "saldap_ldap_port": 636,
- *     ...
- *   }' | cv api4 Saldap.set --in=json
+ *   echo '{ "saldap_ldap_host": "ldap.example.com", ... }' \
+ *     | cv api4 Saldap.set --in=json
+ *
+ *   cv api Saldap.set saldap_ldap_host="ldap.example.com"
  *
  * Role mappings must use full group DNs (e.g. `cn=employees,ou=groups,...|3`).
  * Short names like `employees|3` will not match.
- *
- * @method string getSaldapLdapHost()
- * @method $this setSaldapLdapHost(string $value)
- * @method int getSaldapLdapPort()
- * @method $this setSaldapLdapPort(int $value)
- * @method string getSaldapLdapBindDn()
- * @method $this setSaldapLdapBindDn(string $value)
- * @method string getSaldapLdapBindPassword()
- * @method $this setSaldapLdapBindPassword(string $value)
- * @method string getSaldapLdapBaseDn()
- * @method $this setSaldapLdapBaseDn(string $value)
- * @method string getSaldapLdapUserFilter()
- * @method $this setSaldapLdapUserFilter(string $value)
- * @method string getSaldapLdapGroupDn()
- * @method $this setSaldapLdapGroupDn(string $value)
- * @method bool getSaldapLdapTls()
- * @method $this setSaldapLdapTls(bool $value)
- * @method bool getSaldapLdapAutoCreateUser()
- * @method $this setSaldapLdapAutoCreateUser(bool $value)
- * @method bool getSaldapLdapSyncContact()
- * @method $this setSaldapLdapSyncContact(bool $value)
- * @method string getSaldapLdapAttrMail()
- * @method $this setSaldapLdapAttrMail(string $value)
- * @method string getSaldapLdapAttrFirstName()
- * @method $this setSaldapLdapAttrFirstName(string $value)
- * @method string getSaldapLdapAttrLastName()
- * @method $this setSaldapLdapAttrLastName(string $value)
- * @method string getSaldapLdapRoleMappings()
- * @method $this setSaldapLdapRoleMappings(string $value)
  */
 class Set extends AbstractAction {
 
@@ -129,9 +99,15 @@ class Set extends AbstractAction {
     $updated = [];
 
     foreach (self::settingNames() as $name) {
-      if ($this->$name !== NULL) {
-        $settings->set($name, $this->$name);
-        $updated[$name] = $this->$name;
+      if (property_exists($this, $name) && $this->$name !== NULL) {
+        $value = $this->$name;
+        $settings->set($name, $value);
+        $updated[$name] = $value;
+      }
+      elseif (isset($this->$name)) {
+        $value = $this->$name;
+        $settings->set($name, $value);
+        $updated[$name] = $value;
       }
     }
 

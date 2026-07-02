@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Civi\Api4;
 
 use Civi\Api4\Generic\AbstractEntity;
+use Civi\Api4\Generic\BasicGetFieldsAction;
 
 /**
  * Saldap - LDAP Server Configuration.
@@ -29,23 +30,22 @@ class Saldap extends AbstractEntity {
     ];
   }
 
-  /**
-   * @return array<string, array<string, mixed>>
-   */
-  public static function getFields(): array {
-    $fields = [];
-    foreach (\Civi\Api4\Action\Saldap\Set::settingNames() as $name) {
-      $meta = \Civi\Api4\Action\Saldap\Set::settingMeta($name);
-      $fields[] = [
-        'name' => $name,
-        'title' => $meta['title'] ?? $name,
-        'description' => $meta['description'] ?? '',
-        'data_type' => $meta['data_type'] ?? 'String',
-        'required' => FALSE,
-        'default' => $meta['default'] ?? NULL,
-      ];
-    }
-    return $fields;
+  public static function getFields(): BasicGetFieldsAction {
+    return new BasicGetFieldsAction(static::getEntityName(), __FUNCTION__, function () {
+      $fields = [];
+      foreach (\Civi\Api4\Action\Saldap\Set::settingNames() as $name) {
+        $meta = \Civi\Api4\Action\Saldap\Set::settingMeta($name);
+        $fields[] = [
+          'name' => $name,
+          'title' => $meta['title'] ?? $name,
+          'description' => $meta['description'] ?? '',
+          'data_type' => $meta['data_type'] ?? 'String',
+          'required' => FALSE,
+          'default' => $meta['default'] ?? NULL,
+        ];
+      }
+      return $fields;
+    });
   }
 
 }
