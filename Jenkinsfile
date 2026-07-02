@@ -127,8 +127,8 @@ foreach (['CMS_DB_DSN', 'CIVI_DB_DSN', 'TEST_DB_DSN'] as \$k) {
   \$u = \$d['user'];
   \$p = \$d['pass'];
   \$pdo->exec("CREATE USER IF NOT EXISTS \$u@'%' IDENTIFIED BY '\$p'");
-  \$pdo->exec("CREATE DATABASE IF NOT EXISTS \`\$db\`");
-  \$pdo->exec("GRANT ALL ON \`\$db\`.* TO \$u@'%'");
+  \$pdo->exec('CREATE DATABASE IF NOT EXISTS ' . \$db);
+  \$pdo->exec("GRANT ALL ON " . \$db . ".* TO \$u@'%'");
   echo "OK \$u@\$db\n";
 }
 \$pdo->exec('FLUSH PRIVILEGES');
