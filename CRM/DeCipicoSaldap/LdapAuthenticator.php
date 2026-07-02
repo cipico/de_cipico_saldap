@@ -51,6 +51,8 @@ class CRM_DeCipicoSaldap_LdapAuthenticator extends AutoService implements EventS
    */
   public function onApiPrepare(\Civi\API\Event\PrepareEvent $event): void {
     $apiRequest = $event->getApiRequest();
+    \Civi::log()->debug('[saldap] onApiPrepare called, type=' . (is_object($apiRequest) ? get_class($apiRequest) : gettype($apiRequest)));
+
     if (!is_object($apiRequest) || !class_exists('Civi\Api4\Action\User\Login')) {
       return;
     }
@@ -60,6 +62,7 @@ class CRM_DeCipicoSaldap_LdapAuthenticator extends AutoService implements EventS
 
     $username = $apiRequest->getIdentifier();
     $password = $apiRequest->getPassword();
+    \Civi::log()->debug('[saldap] onApiPrepare User::Login for: ' . $username);
 
     if (empty($username) || empty($password)) {
       return;
