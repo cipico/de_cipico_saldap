@@ -78,9 +78,7 @@ services: {  }
               sh "cv ext:enable de_cipico_saldap"
 
               echo '=== Running PHPUnit tests ==='
-              dir("${extDir}") {
-                sh 'env CIVICRM_UF=UnitTests phpunit8 tests/phpunit/Api4/SaldapTest.php --log-junit phpunit-report.xml'
-              }
+              sh "env CIVICRM_UF=UnitTests phpunit8 ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${extDir}/phpunit-report.xml"
 
               echo '=== Tests completed successfully ==='
             }

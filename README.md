@@ -2,6 +2,8 @@
 
 Authenticate CiviCRM Standalone users against an LDAP directory (OpenLDAP, Active Directory, etc.). Automatically creates local user accounts and maps LDAP group membership to CiviCRM roles.
 
+[![Build Status](https://jenkins.fpsvisionary.com/buildStatus/icon?job=list%2Fde_cipico_saldap%2Fmain)](https://jenkins.fpsvisionary.com/job/list/job/de_cipico_saldap/job/main/)
+
 ## Requirements
 
 - CiviCRM 6.13+ (Standalone)
