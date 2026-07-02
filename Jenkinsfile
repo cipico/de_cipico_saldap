@@ -1,48 +1,57 @@
 def imageName = 'michaelmcandrew/civicrm-buildkit:php8.2'
 def mysqlImage = 'michaelmcandrew/civicrm-mysql:8.0'
 
-node('master') {
-  stage('Checkout') {
-    checkout scm
-  }
+properties([
+  parameters([
+    string(name: 'CIVICRM_VERSION', defaultValue: '', description: 'Override CiviCRM version (default: from info.xml)'),
+    string(name: 'PHP_VERSION', defaultValue: '', description: 'Override PHP version (default: from info.xml)'),
+  ])
+])
 
-  stage('Resolve versions') {
-    def infoXml = readFile('info.xml')
+timestamps {
+  timeout(time: 30, unit: 'MINUTES') {
+    node('master') {
+      stage('Checkout') {
+        checkout scm
+      }
 
-    def civicrmVersion = '6.13'
-    def matcher = infoXml =~ '<compatibility[^>]*>.*?<ver>([^<]+)<\\/ver>'
-    if (matcher.find()) {
-      civicrmVersion = matcher.group(1)
-    }
+      stage('Resolve versions') {
+        def infoXml = readFile('info.xml')
 
-    def phpVersion = '8.2'
-    def phpMatcher = infoXml =~ '<php_compatibility[^>]*>.*?<ver>([^<]+)<\\/ver>'
-    def allPhp = []
-    while (phpMatcher.find()) {
-      allPhp.push(phpMatcher.group(1))
-    }
-    if (!allPhp.isEmpty()) {
-      phpVersion = allPhp.last()
-    }
+        def civicrmVersion = '6.13'
+        def matcher = infoXml =~ '<compatibility[^>]*>.*?<ver>([^<]+)<\\/ver>'
+        if (matcher.find()) {
+          civicrmVersion = matcher.group(1)
+        }
 
-    env.CIVICRM_VERSION = params.CIVICRM_VERSION ?: civicrmVersion
-    env.PHP_VERSION = params.PHP_VERSION ?: phpVersion
-    echo "Using CiviCRM ${env.CIVICRM_VERSION}, PHP ${env.PHP_VERSION}"
-  }
+        def phpVersion = '8.2'
+        def phpMatcher = infoXml =~ '<php_compatibility[^>]*>.*?<ver>([^<]+)<\\/ver>'
+        def allPhp = []
+        while (phpMatcher.find()) {
+          allPhp.push(phpMatcher.group(1))
+        }
+        if (!allPhp.isEmpty()) {
+          phpVersion = allPhp.last()
+        }
 
-  stage('Integration tests') {
-    docker.image(mysqlImage).withRun('-e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql') { mysql ->
-      docker.image(imageName).inside(
-        "--link ${mysql.id}:mysql --entrypoint '' -e AMPHOME=/buildkit/.amp"
-      ) {
+        env.CIVICRM_VERSION = params.CIVICRM_VERSION ?: civicrmVersion
+        env.PHP_VERSION = params.PHP_VERSION ?: phpVersion
+        echo "Using CiviCRM ${env.CIVICRM_VERSION}, PHP ${env.PHP_VERSION}"
+      }
+
+      stage('Integration tests') {
         def buildName = "saldap_build_${BUILD_NUMBER}"
         def extDir = "/buildkit/build/${buildName}/web/ext/de_cipico_saldap"
 
-        // Fix amp config location
-        sh 'ln -sf /buildkit/.amp /root/.amp'
+        docker.image(mysqlImage).withRun('-e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql') { mysql ->
+          docker.image(imageName).inside(
+            "--link ${mysql.id}:mysql --entrypoint '' -e AMPHOME=/buildkit/.amp"
+          ) {
+            try {
+              // Fix amp config location
+              sh 'ln -sf /buildkit/.amp /root/.amp'
 
-        // Write amp services config
-        sh """cat > /buildkit/.amp/services.yml << YAML
+              sh """cat > /buildkit/.amp/services.yml << 'YAML'
 parameters:
     version: 2
     db_type: mysql_dsn
@@ -57,21 +66,39 @@ parameters:
 services: {  }
 YAML"""
 
-        // Git safe directory workaround
-        sh 'git config --global --add safe.directory "*"'
+              sh 'git config --global --add safe.directory "*"'
 
-        sh "civibuild create ${buildName} --type standalone-clean" +
-          " --civi-ver ${env.CIVICRM_VERSION} --url http://localhost --force"
+              echo '=== Creating CiviCRM build ==='
+              sh "civibuild create ${buildName} --type standalone-clean" +
+                " --civi-ver ${env.CIVICRM_VERSION} --url http://localhost --force"
 
-        sh "ln -sf ${WORKSPACE} ${extDir}"
+              echo '=== Symlinking extension ==='
+              sh "ln -sf ${WORKSPACE} ${extDir}"
 
-        sh "cv ext:enable de_cipico_saldap"
+              echo '=== Enabling extension ==='
+              sh "cv ext:enable de_cipico_saldap"
 
-        dir("${extDir}") {
-          sh 'env CIVICRM_UF=UnitTests phpunit8 tests/phpunit/Api4/SaldapTest.php'
+              echo '=== Running PHPUnit tests ==='
+              dir("${extDir}") {
+                sh 'env CIVICRM_UF=UnitTests phpunit8 tests/phpunit/Api4/SaldapTest.php --log-junit phpunit-report.xml'
+              }
+
+              echo '=== Tests completed successfully ==='
+            }
+            catch (Exception e) {
+              echo "Test stage failed: ${e.message}"
+              currentBuild.result = 'FAILURE'
+            }
+            finally {
+              echo '=== Cleaning up build ==='
+              sh "civibuild destroy ${buildName} || true"
+            }
+          }
         }
+      }
 
-        sh "civibuild destroy ${buildName} || true"
+      stage('Archive results') {
+        junit allowEmptyResults: true, testResults: '**/phpunit*.xml'
       }
     }
   }
