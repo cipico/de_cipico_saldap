@@ -170,8 +170,11 @@ cv api4 Saldap.get
 
 ### Write all settings at once
 
+Pipe JSON via stdin:
+
 ```bash
-cv api4 Saldap.set '{
+cat <<'SETTINGS' | cv api4 Saldap.set --in=json
+{
   "saldap_ldap_host": "ldap.example.com",
   "saldap_ldap_port": 636,
   "saldap_ldap_base_dn": "dc=example,dc=com",
@@ -180,13 +183,20 @@ cv api4 Saldap.set '{
   "saldap_ldap_tls": true,
   "saldap_ldap_auto_create_user": true,
   "saldap_ldap_sync_contact": false,
-  "saldap_ldap_user_filter": "(\u0026(objectClass=person)(uid=%s))",
+  "saldap_ldap_user_filter": "(&(objectClass=person)(uid=%s))",
   "saldap_ldap_group_dn": "cn=admins,ou=groups,dc=example,dc=com",
   "saldap_ldap_attr_mail": "mail",
   "saldap_ldap_attr_first_name": "givenName",
   "saldap_ldap_attr_last_name": "sn",
   "saldap_ldap_role_mappings": "cn=employees,ou=groups,dc=example,dc=com|3"
-}'
+}
+SETTINGS
+```
+
+Or save the JSON to a file and use `--in`:
+
+```bash
+cv api4 Saldap.set --in=config.json
 ```
 
 ### Set individual values
