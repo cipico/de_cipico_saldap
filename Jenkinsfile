@@ -80,7 +80,9 @@ services: {  }
         if (params.CACHE_ENABLED) {
           cacheHit = (sh(script: "docker run --rm --entrypoint '' -v ${cacheMount} ${baseImage} test -d ${cacheDir}", returnStatus: true) == 0)
         }
-        echo "Civibuild cache ${cacheKey}: ${cacheHit ? 'HIT' : 'MISS (caching ${params.CACHE_ENABLED ? 'enabled' : 'disabled'})'}"
+        if (cacheHit) { echo "Civibuild cache HIT: ${cacheKey}" }
+        else { echo "Civibuild cache MISS: ${cacheKey} (caching enabled: ${params.CACHE_ENABLED})" }
+
 
         sh "docker rm -f saldap-mysql-${BUILD_NUMBER} saldap-app-${BUILD_NUMBER} 2>/dev/null; true"
         sh "docker run -d --name saldap-mysql-${BUILD_NUMBER} -e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql ${mysqlImage}"
