@@ -187,17 +187,20 @@ class Api4_SaldapTest extends \PHPUnit\Framework\TestCase implements Transaction
       'cn=admins,ou=groups,dc=example,dc=com',
     ];
 
-    // Test 1: \r\n line endings should NOT match
+    // Test 1: \r\n line endings are handled by trim() so they SHOULD match
     \Civi::settings()->set('saldap_ldap_role_mappings', "cn=employees,ou=groups,dc=example,dc=com|3\r\ncn=admins,ou=groups,dc=example,dc=com|2");
     $ldap->syncRoles($userId, ['groups' => $groups]);
     $userAfter = \Civi\Api4\User::get(FALSE)
       ->addWhere('id', '=', $userId)
       ->addSelect('roles')
       ->execute()->first();
-    // \r\n leads to \r suffix on each line → no match → empty roles
-    $this->assertSame([], $userAfter['roles'] ?? [], 'CRLF line endings should not match');
+    $this->assertContains('3', $userAfter['roles'] ?? [], 'CRLF line endings should match (trim handles \\r)');
 
     // Test 2: Doubled ou=groups should NOT match
+    \Civi\Api4\User::update(FALSE)
+      ->addWhere('id', '=', $userId)
+      ->addValue('roles', [])
+      ->execute();
     \Civi::settings()->set('saldap_ldap_role_mappings', "cn=employees,ou=groups,ou=groups,dc=example,dc=com|3");
     $ldap->syncRoles($userId, ['groups' => $groups]);
     $userAfter2 = \Civi\Api4\User::get(FALSE)
