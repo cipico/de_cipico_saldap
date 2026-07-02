@@ -157,6 +157,56 @@ checks and role resolution.
 | Role not assigned | Group name doesn't match, or group not found in `member` attribute |
 | `htmlspecialchars()` error on settings page | Extension not fully enabled — run `cv ext:disable de_cipico_saldap && cv ext:enable de_cipico_saldap` |
 
+## API (Programmatic Configuration)
+
+The extension exposes a `Saldap` APIv4 entity with `get` and `set` actions
+for configuring all LDAP settings in a single call.
+
+### Read current settings
+
+```bash
+cv api4 Saldap.get
+```
+
+### Write all settings at once
+
+```bash
+cv api4 Saldap.set '{
+  "saldap_ldap_host": "ldap.example.com",
+  "saldap_ldap_port": 636,
+  "saldap_ldap_base_dn": "dc=example,dc=com",
+  "saldap_ldap_bind_dn": "cn=readonly,ou=system,dc=example,dc=com",
+  "saldap_ldap_bind_password": "s3cret",
+  "saldap_ldap_tls": true,
+  "saldap_ldap_auto_create_user": true,
+  "saldap_ldap_sync_contact": false,
+  "saldap_ldap_user_filter": "(\u0026(objectClass=person)(uid=%s))",
+  "saldap_ldap_group_dn": "cn=admins,ou=groups,dc=example,dc=com",
+  "saldap_ldap_attr_mail": "mail",
+  "saldap_ldap_attr_first_name": "givenName",
+  "saldap_ldap_attr_last_name": "sn",
+  "saldap_ldap_role_mappings": "cn=employees,ou=groups,dc=example,dc=com|3"
+}'
+```
+
+### Set individual values
+
+Only the parameters you provide are updated — omitted ones keep their current value.
+
+```bash
+cv api Saldap.set saldap_ldap_host=ldap.example.com
+cv api Saldap.set saldap_ldap_port=636 saldap_ldap_tls=1
+cv api Saldap.set saldap_ldap_group_dn="cn=admins,ou=groups,dc=example,dc=com"
+```
+
+All 14 settings are supported — see `settings/Saldap.setting.php` for details.
+
+> **Role mappings format:** Each line is a full group DN followed by `|` and the role ID.
+> Use `\n` between multiple mappings in JSON, e.g.
+> `"cn=employees,ou=groups,dc=example,dc=com|3\ncn=admins,ou=groups,dc=example,dc=com|2"`.
+> Short names like `employees|3` will **not** match — the left side must match the
+> full DN as returned by the LDAP server (e.g. from `fetchUserGroups()`).
+
 ## Development
 
 Generated with [civix](https://docs.civicrm.org/dev/en/latest/extensions/civix/).
