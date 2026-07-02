@@ -51,7 +51,14 @@ class Api4_SaldapTest extends \PHPUnit\Framework\TestCase implements Transaction
 
     $this->assertNotNull($result);
     foreach ($this->defaults as $name => $default) {
-      $this->assertSame($default, $result[$name], "Mismatch for $name");
+      // CiviCRM returns null for unset string settings,
+      // so accept both '' and null for empty-string defaults.
+      if ($default === '') {
+        $this->assertTrue($result[$name] === '' || $result[$name] === NULL, "Mismatch for $name");
+      }
+      else {
+        $this->assertSame($default, $result[$name], "Mismatch for $name");
+      }
     }
   }
 

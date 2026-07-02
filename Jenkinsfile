@@ -1,4 +1,5 @@
 def imageName = 'michaelmcandrew/civicrm-buildkit:php8.2'
+def mysqlImage = 'michaelmcandrew/civicrm-mysql:8.0'
 
 node('master') {
   stage('Checkout') {
@@ -30,25 +31,43 @@ node('master') {
   }
 
   stage('Integration tests') {
-    def mysqlArgs = "-e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=civicrm" +
-      " -e MYSQL_USER=civicrm -e MYSQL_PASSWORD=civicrm --tmpfs /var/lib/mysql"
-    docker.image('mysql:8.0').withRun(mysqlArgs) { mysql ->
-      docker.image(imageName).inside("--link ${mysql.id}:mysql --entrypoint='' -u 0") {
+    docker.image(mysqlImage).withRun('-e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql') { mysql ->
+      docker.image(imageName).inside(
+        "--link ${mysql.id}:mysql --entrypoint '' -e AMPHOME=/buildkit/.amp"
+      ) {
         def buildName = "saldap_build_${BUILD_NUMBER}"
-        def extDir = "/opt/buildkit/build/${buildName}/sites/default/ext/de_cipico_saldap"
+        def extDir = "/buildkit/build/${buildName}/web/ext/de_cipico_saldap"
 
-        sh "civibuild create ${buildName} --type standalone" +
-          " --version ${env.CIVICRM_VERSION} --php ${env.PHP_VERSION}" +
-          " --civi-ver ${env.CIVICRM_VERSION} --url http://localhost" +
-          " --db mysql://civicrm:civicrm@mysql/civicrm"
+        // Fix amp config location
+        sh 'ln -sf /buildkit/.amp /root/.amp'
+
+        // Write amp services config
+        sh """cat > /buildkit/.amp/services.yml << YAML
+parameters:
+    version: 2
+    db_type: mysql_dsn
+    mysql_dsn: "mysql://root:buildkit@mysql:3306"
+    perm_type: none
+    perm_user: www-data
+    hosts_type: file
+    httpd_type: apache24
+    httpd_visibility: all
+    httpd_shared_ports: "7890"
+    httpd_restart_command: "true"
+services: {  }
+YAML"""
+
+        // Git safe directory workaround
+        sh 'git config --global --add safe.directory "*"'
+
+        sh "civibuild create ${buildName} --type standalone-clean" +
+          " --civi-ver ${env.CIVICRM_VERSION} --url http://localhost --force"
 
         sh "ln -sf ${WORKSPACE} ${extDir}"
 
-        dir("/opt/buildkit/build/${buildName}/sites/default") {
-          sh "cv ext:enable de_cipico_saldap"
-        }
+        sh "cv ext:enable de_cipico_saldap"
 
-        dir(extDir) {
+        dir("${extDir}") {
           sh 'env CIVICRM_UF=UnitTests phpunit8 tests/phpunit/Api4/SaldapTest.php'
         }
 
