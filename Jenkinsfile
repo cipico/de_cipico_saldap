@@ -116,11 +116,12 @@ services: {  }
             sh "${dockerPrefix} tar xzf ${cacheDir}/${cacheKey}-snapshots.tar.gz -C /buildkit/app/snapshot"
 
             echo '=== Restoring DB users and data ==='
-            // Extract DSNs from settings, create DB users and databases on MySQL
+            // Create DB users and databases, then import SQL dump into the Civi DB
             sh """docker exec saldap-app-${BUILD_NUMBER} php << 'SCRIPT'
 <?php
 require '${buildDir}/web/private/civicrm.settings.php';
 \$pdo = new PDO('mysql:host=mysql', 'root', 'buildkit');
+\$dbName = '';
 foreach (['CMS_DB_DSN', 'CIVI_DB_DSN', 'TEST_DB_DSN'] as \$k) {
   \$d = parse_url(\$GLOBALS['_CV'][\$k]);
   \$db = ltrim(\$d['path'], '/');
@@ -129,11 +130,13 @@ foreach (['CMS_DB_DSN', 'CIVI_DB_DSN', 'TEST_DB_DSN'] as \$k) {
   \$pdo->exec("CREATE USER IF NOT EXISTS \$u@'%' IDENTIFIED BY '\$p'");
   \$pdo->exec('CREATE DATABASE IF NOT EXISTS ' . \$db);
   \$pdo->exec("GRANT ALL ON " . \$db . ".* TO \$u@'%'");
+  if (\$k === 'CIVI_DB_DSN') { \$dbName = \$db; }
   echo "OK \$u@\$db\n";
 }
 \$pdo->exec('FLUSH PRIVILEGES');
+echo "CIVI_DB=\$dbName\n";
 SCRIPT"""
-            sh "docker exec saldap-app-${BUILD_NUMBER} zcat /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz | docker exec -i saldap-mysql-${BUILD_NUMBER} mysql -u root -pbuildkit"
+            sh "CIVI_DB=\$(docker exec saldap-app-${BUILD_NUMBER} php -r 'require \"${buildDir}/web/private/civicrm.settings.php\"; echo ltrim(parse_url(\$GLOBALS[\"_CV\"][\"CIVI_DB_DSN\"])[\"path\"], \"/\");') && docker exec saldap-app-${BUILD_NUMBER} zcat /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz | docker exec -i saldap-mysql-${BUILD_NUMBER} mysql -u root -pbuildkit \"\$CIVI_DB\""
             echo 'Restore complete'
           }
 
