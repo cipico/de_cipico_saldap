@@ -86,7 +86,7 @@ services: {  }
         def maxWait = 30
 
         try {
-          def ciSettings = "/buildkit/build/${buildName}/web/civicrm.settings.php"
+          def ciSettings = "/buildkit/build/${buildName}/web/private/civicrm.settings.php"
 
           sh "${dockerPrefix} git config --global --add safe.directory '*'"
 
@@ -113,7 +113,7 @@ services: {  }
         }
         finally {
           echo '=== Cleaning up build ==='
-          sh "${dockerPrefix} civibuild destroy ${buildName} || true"
+          sh "${dockerPrefix} civibuild destroy ${buildName} --force || true"
           sh "docker rm -f saldap-app-${BUILD_NUMBER} saldap-mysql-${BUILD_NUMBER} || true"
         }
       }
