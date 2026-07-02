@@ -111,14 +111,9 @@ services: {  }
             sh "docker commit saldap-app-${BUILD_NUMBER} ${cachedImage}"
           }
           else {
-            echo '=== Using cached Docker image (cache HIT) ==='
-            // Verify cached image has the build
-            sh "${dockerPrefix} ls -la /buildkit/build/${cachedBuildName}/web/private/civicrm.settings.php 2>&1"
-            sh "${dockerPrefix} ls -la /buildkit/build/${cachedBuildName}.sh 2>&1"
-            sh "${dockerPrefix} ls -la /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz 2>&1"
-            // Restore DB snapshots
-            sh "${dockerPrefix} civibuild restore ${cachedBuildName} --force 2>&1"
-            echo '=== DB restore completed ==='
+            echo '=== Restoring DB from cached config + snapshots (cache HIT) ==='
+            sh "docker cp ${WORKSPACE}/docker/restore-db.sh saldap-app-${BUILD_NUMBER}:/tmp/"
+            sh "docker exec -u 0:0 saldap-app-${BUILD_NUMBER} bash /tmp/restore-db.sh ${cachedBuildName} saldap-app-${BUILD_NUMBER} saldap-mysql-${BUILD_NUMBER}"
           }
 
           def ciSettings = "${buildDir}/web/private/civicrm.settings.php"
