@@ -70,7 +70,17 @@ services: {  }
         sh "docker rm -f saldap-mysql-${BUILD_NUMBER} saldap-app-${BUILD_NUMBER} 2>/dev/null; true"
         sh "docker run -d --name saldap-mysql-${BUILD_NUMBER} -e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql ${mysqlImage}"
 
-        sh "docker run -d --name saldap-app-${BUILD_NUMBER} --link saldap-mysql-${BUILD_NUMBER}:mysql --entrypoint /usr/bin/env -e HOME=/tmp -e AMPHOME=${ampDir} -v ${WORKSPACE}:${WORKSPACE}:rw ${imageName} tail -f /dev/null"
+        // Create persistent cache volumes on first run
+        sh "docker volume inspect saldap-git-cache >/dev/null 2>&1 || docker volume create saldap-git-cache"
+        sh "docker volume inspect saldap-composer-cache >/dev/null 2>&1 || docker volume create saldap-composer-cache"
+        sh "docker run -d --name saldap-app-${BUILD_NUMBER} \\" +
+          "--link saldap-mysql-${BUILD_NUMBER}:mysql \\" +
+          "--entrypoint /usr/bin/env \\" +
+          "-e HOME=/tmp -e AMPHOME=${ampDir} \\" +
+          "-v ${WORKSPACE}:${WORKSPACE}:rw \\" +
+          "-v saldap-git-cache:/buildkit/app/tmp/git-cache \\" +
+          "-v saldap-composer-cache:/buildkit/.composer \\" +
+          "${imageName} tail -f /dev/null"
 
         def dockerPrefix = "docker exec -u 0:0 saldap-app-${BUILD_NUMBER}"
         def maxWait = 30
