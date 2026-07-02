@@ -30,14 +30,10 @@ node('master') {
   }
 
   stage('Integration tests') {
-    docker.image('mysql:8.0').withRun([
-      '-e', 'MYSQL_ROOT_PASSWORD=root',
-      '-e', 'MYSQL_DATABASE=civicrm',
-      '-e', 'MYSQL_USER=civicrm',
-      '-e', 'MYSQL_PASSWORD=civicrm',
-      '--tmpfs', '/var/lib/mysql'
-    ]) { mysql ->
-      docker.image(imageName).inside("--link ${mysql.id}:mysql") {
+    def mysqlArgs = "-e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=civicrm" +
+      " -e MYSQL_USER=civicrm -e MYSQL_PASSWORD=civicrm --tmpfs /var/lib/mysql"
+    docker.image('mysql:8.0').withRun(mysqlArgs) { mysql ->
+      docker.image(imageName).inside("--link ${mysql.id}:mysql -v ${WORKSPACE}:/workspace") {
         def buildName = "saldap_build_${BUILD_NUMBER}"
         def extDir = "/opt/buildkit/build/${buildName}/sites/default/ext/de_cipico_saldap"
 
@@ -48,7 +44,9 @@ node('master') {
 
         sh "ln -sf ${WORKSPACE} ${extDir}"
 
-        sh "cv ext:enable de_cipico_saldap"
+        dir("/opt/buildkit/build/${buildName}/sites/default") {
+          sh "cv ext:enable de_cipico_saldap"
+        }
 
         dir(extDir) {
           sh 'env CIVICRM_UF=UnitTests phpunit8 tests/phpunit/Api4/SaldapTest.php'
