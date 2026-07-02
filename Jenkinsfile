@@ -6,6 +6,7 @@ properties([
   parameters([
     string(name: 'CIVICRM_VERSION', defaultValue: '', description: 'Override CiviCRM version (default: from info.xml)'),
     string(name: 'PHP_VERSION', defaultValue: '', description: 'Override PHP version (default: from info.xml)'),
+    booleanParam(name: 'CACHE_ENABLED', defaultValue: true, description: 'Use cached civibuild if available'),
   ])
 ])
 
@@ -75,9 +76,11 @@ services: {  }
         def cacheDir = "/cache/${cacheKey}"
 
         // Check for cached build
-        sh "docker run --rm --entrypoint '' -v ${cacheMount} ${baseImage} test -d ${cacheDir} 2>/dev/null"
-        def cacheHit = (sh(script: "docker run --rm --entrypoint '' -v ${cacheMount} ${baseImage} test -d ${cacheDir}", returnStatus: true) == 0)
-        echo "Civibuild cache ${cacheKey}: ${cacheHit ? 'HIT' : 'MISS'}"
+        def cacheHit = false
+        if (params.CACHE_ENABLED) {
+          cacheHit = (sh(script: "docker run --rm --entrypoint '' -v ${cacheMount} ${baseImage} test -d ${cacheDir}", returnStatus: true) == 0)
+        }
+        echo "Civibuild cache ${cacheKey}: ${cacheHit ? 'HIT' : 'MISS (caching ${params.CACHE_ENABLED ? 'enabled' : 'disabled'})'}"
 
         sh "docker rm -f saldap-mysql-${BUILD_NUMBER} saldap-app-${BUILD_NUMBER} 2>/dev/null; true"
         sh "docker run -d --name saldap-mysql-${BUILD_NUMBER} -e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql ${mysqlImage}"
