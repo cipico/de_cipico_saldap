@@ -14,58 +14,124 @@ use Civi\Api4\Generic\Result;
  *
  * Usage:
  *
- *   cv api4 Saldap.set '{
+ *   echo '{
  *     "saldap_ldap_host": "ldap.example.com",
  *     "saldap_ldap_port": 636,
- *     "saldap_ldap_base_dn": "dc=example,dc=com",
- *     "saldap_ldap_bind_dn": "cn=readonly,ou=system,dc=example,dc=com",
- *     "saldap_ldap_bind_password": "s3cret",
- *     "saldap_ldap_tls": true,
- *     "saldap_ldap_auto_create_user": true,
- *     "saldap_ldap_sync_contact": false,
- *     "saldap_ldap_user_filter": "(\u0026(objectClass=person)(uid=%s))",
- *     "saldap_ldap_group_dn": "cn=admins,ou=groups,dc=example,dc=com",
- *     "saldap_ldap_attr_mail": "mail",
- *     "saldap_ldap_attr_first_name": "givenName",
- *     "saldap_ldap_attr_last_name": "sn",
- *     "saldap_ldap_role_mappings": "cn=employees,ou=groups,dc=example,dc=com|3"
- *   }'
+ *     ...
+ *   }' | cv api4 Saldap.set --in=json
  *
- * Role mappings must use full group DNs (e.g. `cn=employees,ou=groups,dc=example,dc=com|3`).
+ * Role mappings must use full group DNs (e.g. `cn=employees,ou=groups,...|3`).
  * Short names like `employees|3` will not match.
- * For multiple mappings, use \n between entries in the JSON string.
  *
- * Or with cv's key=value syntax (note the + prefix for setting values):
- *
- *   cv api Saldap.set \
- *     saldap_ldap_host=ldap.example.com \
- *     saldap_ldap_port=636 \
- *     saldap_ldap_base_dn="dc=example,dc=com"
+ * @method string getSaldapLdapHost()
+ * @method $this setSaldapLdapHost(string $value)
+ * @method int getSaldapLdapPort()
+ * @method $this setSaldapLdapPort(int $value)
+ * @method string getSaldapLdapBindDn()
+ * @method $this setSaldapLdapBindDn(string $value)
+ * @method string getSaldapLdapBindPassword()
+ * @method $this setSaldapLdapBindPassword(string $value)
+ * @method string getSaldapLdapBaseDn()
+ * @method $this setSaldapLdapBaseDn(string $value)
+ * @method string getSaldapLdapUserFilter()
+ * @method $this setSaldapLdapUserFilter(string $value)
+ * @method string getSaldapLdapGroupDn()
+ * @method $this setSaldapLdapGroupDn(string $value)
+ * @method bool getSaldapLdapTls()
+ * @method $this setSaldapLdapTls(bool $value)
+ * @method bool getSaldapLdapAutoCreateUser()
+ * @method $this setSaldapLdapAutoCreateUser(bool $value)
+ * @method bool getSaldapLdapSyncContact()
+ * @method $this setSaldapLdapSyncContact(bool $value)
+ * @method string getSaldapLdapAttrMail()
+ * @method $this setSaldapLdapAttrMail(string $value)
+ * @method string getSaldapLdapAttrFirstName()
+ * @method $this setSaldapLdapAttrFirstName(string $value)
+ * @method string getSaldapLdapAttrLastName()
+ * @method $this setSaldapLdapAttrLastName(string $value)
+ * @method string getSaldapLdapRoleMappings()
+ * @method $this setSaldapLdapRoleMappings(string $value)
  */
 class Set extends AbstractAction {
 
-  public function __construct() {
-    parent::__construct();
-    foreach (self::settingNames() as $name) {
-      $meta = self::settingMeta($name);
-      $param = $this->createParam($name, $meta['data_type'], FALSE)
-        ->setLabel($meta['title'] ?? $name)
-        ->setDescription($meta['description'] ?? '');
-      if (array_key_exists('default', $meta)) {
-        $param->setDefault($meta['default']);
-      }
-    }
-  }
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_host;
+
+  /**
+   * @var int
+   */
+  protected $saldap_ldap_port;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_bind_dn;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_bind_password;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_base_dn;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_user_filter;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_group_dn;
+
+  /**
+   * @var bool
+   */
+  protected $saldap_ldap_tls;
+
+  /**
+   * @var bool
+   */
+  protected $saldap_ldap_auto_create_user;
+
+  /**
+   * @var bool
+   */
+  protected $saldap_ldap_sync_contact;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_attr_mail;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_attr_first_name;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_attr_last_name;
+
+  /**
+   * @var string
+   */
+  protected $saldap_ldap_role_mappings;
 
   public function _run(Result $result): void {
     $settings = \Civi::settings();
     $updated = [];
 
     foreach (self::settingNames() as $name) {
-      if ($this->paramExists($name)) {
-        $val = $this->getParam($name);
-        $settings->set($name, $val);
-        $updated[$name] = $val;
+      if ($this->$name !== NULL) {
+        $settings->set($name, $this->$name);
+        $updated[$name] = $this->$name;
       }
     }
 
@@ -73,10 +139,6 @@ class Set extends AbstractAction {
       'success' => TRUE,
       'updated' => $updated,
     ];
-  }
-
-  private function paramExists(string $name): bool {
-    return array_key_exists($name, $this->getParamValues());
   }
 
   /**
