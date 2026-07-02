@@ -67,40 +67,39 @@ parameters:
 services: {  }
 """
 
-        docker.image(mysqlImage).withRun('-e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql') { mysql ->
-          docker.image(imageName).inside(
-            "--link ${mysql.id}:mysql --entrypoint /usr/bin/env -e HOME=/tmp -e AMPHOME=${ampDir}"
-          ) {
-            try {
-              sh 'git config --global --add safe.directory "*"'
+        sh "docker rm -f saldap-mysql-${BUILD_NUMBER} saldap-app-${BUILD_NUMBER} 2>/dev/null; true"
+        sh "docker run -d --name saldap-mysql-${BUILD_NUMBER} -e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql ${mysqlImage}"
 
-              echo '=== Creating CiviCRM build ==='
-              sh "civibuild create ${buildName} --type standalone-clean" +
-                " --civi-ver ${env.CIVICRM_VERSION} --url http://localhost --force"
+        sh "docker run -d --name saldap-app-${BUILD_NUMBER} --link saldap-mysql-${BUILD_NUMBER}:mysql --entrypoint /usr/bin/env -e HOME=/tmp -e AMPHOME=${ampDir} -v ${WORKSPACE}:${WORKSPACE}:rw ${imageName} cat"
 
-              echo '=== Symlinking extension ==='
-              sh "ln -sf ${WORKSPACE} ${extDir}"
+        def dockerPrefix = "docker exec -u 0:0 saldap-app-${BUILD_NUMBER}"
+        def maxWait = 30
 
-              echo '=== Enabling extension ==='
-              sh "cv ext:enable de_cipico_saldap"
+        try {
+          sh "${dockerPrefix} git config --global --add safe.directory '*'"
 
-              echo '=== Running PHPUnit tests ==='
-              sh "env CIVICRM_UF=UnitTests php /buildkit/extern/phpunit8/phpunit8.phar" +
-                " --configuration ${extDir}/phpunit.xml.dist" +
-                " ${extDir}/tests/phpunit/Api4/SaldapTest.php" +
-                " --log-junit ${WORKSPACE}/saldap-test-report.xml"
+          echo '=== Creating CiviCRM build ==='
+          sh "${dockerPrefix} civibuild create ${buildName} --type standalone-clean --civi-ver ${env.CIVICRM_VERSION} --url http://localhost --force"
 
-              echo '=== Tests completed successfully ==='
-            }
-            catch (Exception e) {
-              echo "Test stage failed: ${e.message}"
-              currentBuild.result = 'FAILURE'
-            }
-            finally {
-              echo '=== Cleaning up build ==='
-              sh "civibuild destroy ${buildName} || true"
-            }
-          }
+          echo '=== Symlinking extension ==='
+          sh "${dockerPrefix} ln -sf ${WORKSPACE} ${extDir}"
+
+          echo '=== Enabling extension ==='
+          sh "${dockerPrefix} -w /buildkit/build/${buildName}/web cv ext:enable de_cipico_saldap"
+
+          echo '=== Running PHPUnit tests ==='
+          sh "${dockerPrefix} -w ${extDir} env CIVICRM_UF=UnitTests php /buildkit/extern/phpunit8/phpunit8.phar --configuration ${extDir}/phpunit.xml.dist ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${WORKSPACE}/saldap-test-report.xml"
+
+          echo '=== Tests completed successfully ==='
+        }
+        catch (Exception e) {
+          echo "Test stage failed: ${e.message}"
+          currentBuild.result = 'FAILURE'
+        }
+        finally {
+          echo '=== Cleaning up build ==='
+          sh "${dockerPrefix} civibuild destroy ${buildName} || true"
+          sh "docker rm -f saldap-app-${BUILD_NUMBER} saldap-mysql-${BUILD_NUMBER} || true"
         }
       }
 
