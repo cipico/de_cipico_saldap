@@ -1,0 +1,36 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: civicrm
+      MYSQL_USER: civicrm
+      MYSQL_PASSWORD: civicrm
+    ports:
+      - "3306:3306"
+    tmpfs:
+      - /var/lib/mysql
+
+  tester:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - mysql
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: civicrm
+      MYSQL_PASSWORD: civicrm
+      MYSQL_DATABASE: civicrm
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    command: >
+      bash -c "
+        civibuild create ci_test --type standalone \
+          --version 6.13 --php 8.2 --civi-ver 6.13 \
+          --url http://localhost --db mysql://civicrm:civicrm@mysql/civicrm \
+        && cv ext:enable de_cipico_saldap \
+        && phpunit8 tests/phpunit/Api4/SaldapTest.php \
+        && civibuild destroy ci_test
+      "
