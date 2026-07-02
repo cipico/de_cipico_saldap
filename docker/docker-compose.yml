@@ -1,0 +1,16 @@
+services:
+  mysql:
+    image: michaelmcandrew/civicrm-mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: buildkit
+    tmpfs:
+      - /var/lib/mysql
+
+  civicrm:
+    image: michaelmcandrew/civicrm-buildkit:php8.2
+    depends_on:
+      - mysql
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    command: bash /workspace/docker/test-runner.sh
