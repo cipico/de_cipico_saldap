@@ -51,8 +51,6 @@ class CRM_DeCipicoSaldap_LdapAuthenticator extends AutoService implements EventS
    */
   public function onApiPrepare(\Civi\API\Event\PrepareEvent $event): void {
     $apiRequest = $event->getApiRequest();
-    \Civi::log()->debug('[saldap] onApiPrepare called, type=' . (is_object($apiRequest) ? get_class($apiRequest) : gettype($apiRequest)));
-
     if (!is_object($apiRequest) || !class_exists('Civi\Api4\Action\User\Login')) {
       return;
     }
@@ -62,31 +60,9 @@ class CRM_DeCipicoSaldap_LdapAuthenticator extends AutoService implements EventS
 
     $username = $apiRequest->getIdentifier();
     $password = $apiRequest->getPassword();
-    \Civi::log()->debug('[saldap] onApiPrepare User::Login for: ' . $username);
 
     if (empty($username) || empty($password)) {
       return;
-    }
-
-    // Check if user exists locally
-    $existing = \Civi\Api4\User::get(FALSE)
-      ->addWhere('username', '=', $username)
-      ->addSelect('id')
-      ->execute()
-      ->first();
-
-    if ($existing) {
-      // User exists, check if they have a password hash
-      $existing = \Civi\Api4\User::get(FALSE)
-        ->addWhere('id', '=', $existing['id'])
-        ->addSelect('hashed_password')
-        ->execute()
-        ->first();
-
-      if (!empty($existing['hashed_password'])) {
-        // Already has local password, nothing to do
-        return;
-      }
     }
 
     // Try LDAP auth
@@ -98,7 +74,10 @@ class CRM_DeCipicoSaldap_LdapAuthenticator extends AutoService implements EventS
     }
 
     // Create or update local user with password hash
-    $ldap->findOrCreateUser($username, $ldapAttrs, $password);
+    $userId = $ldap->findOrCreateUser($username, $ldapAttrs, $password);
+    if ($userId !== NULL) {
+      $ldap->syncRoles($userId, $ldapAttrs);
+    }
   }
 
   /**
