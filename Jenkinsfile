@@ -15,10 +15,6 @@ timestamps {
         checkout scm
       }
 
-      stage('Lint PHP') {
-        sh 'find . -name "*.php" -not -path "./vendor/*" -not -path "./.git/*" -exec php -l {} \\;'
-      }
-
       stage('Resolve versions') {
         def infoXml = readFile('info.xml')
 
@@ -68,6 +64,9 @@ services: {  }
             "--link ${mysql.id}:mysql --entrypoint /usr/bin/env -e AMPHOME=${ampDir}"
           ) {
             try {
+              echo '=== PHP syntax check ==='
+              sh "find ${WORKSPACE} -name '*.php' -not -path '${WORKSPACE}/vendor/*' -exec php -l {} \\;"
+
               sh 'git config --global --add safe.directory "*"'
 
               echo '=== Creating CiviCRM build ==='
