@@ -179,31 +179,20 @@ class CRM_DeCipicoSaldap_Ldap {
         $this->log(self::LEVEL_ERROR, 'Failed to resolve contact for user {username}', ['username' => $username]);
         return NULL;
       }
+      // Remove any stale UFMatch that might conflict with the new user
+      $ufName = $ldapAttrs['mail'] ?: $username;
+      \Civi\Api4\UFMatch::delete(FALSE)
+        ->addWhere('uf_name', '=', $ufName)
+        ->execute();
+
       $password = $password ?: bin2hex(random_bytes(16));
       $userId = UserApi::create(FALSE)
         ->addValue('username', $username)
-        ->addValue('uf_name', $ldapAttrs['mail'] ?: $username)
+        ->addValue('uf_name', $ufName)
         ->addValue('contact_id', $contactId)
         ->addValue('password', $password)
         ->execute()
         ->single()['id'];
-
-      $ufName = $ldapAttrs['mail'] ?: $username;
-      // Use direct SQL for UFMatch since the DAO doesn't support the username field
-      \Civi\Api4\UFMatch::delete(FALSE)
-        ->addWhere('uf_name', '=', $ufName)
-        ->execute();
-      $domainId = CRM_Core_Config::domainID();
-      \CRM_Core_DAO::executeQuery(
-        'INSERT INTO civicrm_uf_match (domain_id, uf_id, uf_name, contact_id, username) VALUES (%1, %2, %3, %4, %5)',
-        [
-          1 => [$domainId, 'Integer'],
-          2 => [$userId, 'Integer'],
-          3 => [$ufName, 'String'],
-          4 => [$contactId, 'Integer'],
-          5 => [$username, 'String'],
-        ]
-      );
 
       $this->log(self::LEVEL_INFO, 'Auto-created CiviCRM user {username} (uid={userId}, cid={contactId})', [
         'username' => $username,
