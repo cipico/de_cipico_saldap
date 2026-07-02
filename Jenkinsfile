@@ -70,7 +70,7 @@ services: {  }
         sh "docker rm -f saldap-mysql-${BUILD_NUMBER} saldap-app-${BUILD_NUMBER} 2>/dev/null; true"
         sh "docker run -d --name saldap-mysql-${BUILD_NUMBER} -e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql ${mysqlImage}"
 
-        sh "docker run -d --name saldap-app-${BUILD_NUMBER} --link saldap-mysql-${BUILD_NUMBER}:mysql --entrypoint /usr/bin/env -e HOME=/tmp -e AMPHOME=${ampDir} -v ${WORKSPACE}:${WORKSPACE}:rw ${imageName} cat"
+        sh "docker run -d --name saldap-app-${BUILD_NUMBER} --link saldap-mysql-${BUILD_NUMBER}:mysql --entrypoint /usr/bin/env -e HOME=/tmp -e AMPHOME=${ampDir} -v ${WORKSPACE}:${WORKSPACE}:rw ${imageName} tail -f /dev/null"
 
         def dockerPrefix = "docker exec -u 0:0 saldap-app-${BUILD_NUMBER}"
         def maxWait = 30
