@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/saldap/test</path>
+    <page_callback>CRM_DeCipicoSaldap_Form_LdapTest</page_callback>
+    <title>LdapTest</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+</menu>
