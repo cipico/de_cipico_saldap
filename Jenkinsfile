@@ -42,16 +42,10 @@ timestamps {
       stage('Integration tests') {
         def buildName = "saldap_build_${BUILD_NUMBER}"
         def extDir = "/buildkit/build/${buildName}/web/ext/de_cipico_saldap"
+        def ampDir = "${WORKSPACE}/.amp"
 
-        docker.image(mysqlImage).withRun('-e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql') { mysql ->
-          docker.image(imageName).inside(
-            "--link ${mysql.id}:mysql --entrypoint '' -e AMPHOME=/buildkit/.amp"
-          ) {
-            try {
-              // Fix amp config location
-              sh 'ln -sf /buildkit/.amp /root/.amp'
-
-              sh """cat > /buildkit/.amp/services.yml << 'YAML'
+        // Write amp config to workspace (writable by Jenkins user)
+        writeFile file: "${ampDir}/services.yml", text: """\
 parameters:
     version: 2
     db_type: mysql_dsn
@@ -64,8 +58,13 @@ parameters:
     httpd_shared_ports: "7890"
     httpd_restart_command: "true"
 services: {  }
-YAML"""
+"""
 
+        docker.image(mysqlImage).withRun('-e MYSQL_ROOT_PASSWORD=buildkit --tmpfs /var/lib/mysql') { mysql ->
+          docker.image(imageName).inside(
+            "--link ${mysql.id}:mysql -e AMPHOME=${ampDir}"
+          ) {
+            try {
               sh 'git config --global --add safe.directory "*"'
 
               echo '=== Creating CiviCRM build ==='
