@@ -9,14 +9,13 @@ node('master') {
 
     stage('Resolve versions') {
       def infoXml = readFile('info.xml')
-      def civicrmVersion = (infoXml =~ /<compatibility[^>]*>.*?<ver>([^<]+)<\/ver>.*?<\/compatibility>/s)
-        .findResult { it[1] } ?: '6.13'
-      def phpVersions = (infoXml =~ /<php_compatibility[^>]*>.*?<ver>([^<]+)<\/ver>.*?<\/php_compatibility>/s)
-        .findResult { it[1] } ?: '8.2'
-      def phpVersion = phpVersions.split(/[,\s]+/).last()
+      def info = new XmlSlurper(false, false).parseText(infoXml)
+      def civicrmVersion = params.CIVICRM_VERSION ?: info.compatibility.ver.text()
+      def phpVersions = info.php_compatibility.ver*.text()
+      def phpVersion = params.PHP_VERSION ?: phpVersions.last()
 
-      env.CIVICRM_VERSION = params.CIVICRM_VERSION ?: civicrmVersion
-      env.PHP_VERSION = params.PHP_VERSION ?: phpVersion
+      env.CIVICRM_VERSION = civicrmVersion
+      env.PHP_VERSION = phpVersion
 
       echo "Using CiviCRM ${env.CIVICRM_VERSION}, PHP ${env.PHP_VERSION}"
     }
