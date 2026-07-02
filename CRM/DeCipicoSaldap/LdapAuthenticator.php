@@ -19,7 +19,7 @@ class CRM_DeCipicoSaldap_LdapAuthenticator extends AutoService implements EventS
       'civi.authx.checkCredential' => [
         ['ldapAuthenticate', self::PRIORITY_LDAP],
       ],
-      'civi.standalone.login' => 'onWebLogin',
+      'civi.api.prepare' => 'onApiPrepare',
     ];
   }
 
@@ -46,34 +46,47 @@ class CRM_DeCipicoSaldap_LdapAuthenticator extends AutoService implements EventS
   }
 
   /**
-   * Web login form (civi.standalone.login event).
-   *
-   * Tries LDAP auth when the user has no local password hash
-   * or when the username doesn't exist locally yet.
+   * Intercept User::login API to ensure LDAP users exist locally
+   * before the login action looks them up.
    */
-  public function onWebLogin(LoginEvent $event): void {
-    if ($event->stage !== 'pre_credentials_check') {
+  public function onApiPrepare(\Civi\API\Event\PrepareEvent $event): void {
+    $apiRequest = $event->getApiRequest();
+    if (!is_object($apiRequest) || !class_exists('Civi\Api4\Action\User\Login')) {
+      return;
+    }
+    if (!$apiRequest instanceof \Civi\Api4\Action\User\Login) {
       return;
     }
 
-    $password = $_POST['password'] ?? $_REQUEST['password'] ?? '';
-    $username = $_POST['username'] ?? $_POST['identifier'] ?? $_REQUEST['username'] ?? '';
+    $username = $apiRequest->getIdentifier();
+    $password = $apiRequest->getPassword();
+
     if (empty($username) || empty($password)) {
       return;
     }
 
-    // If user already exists and has a password hash, skip LDAP
-    if ($event->userID) {
-      $user = \Civi\Api4\User::get(FALSE)
-        ->addWhere('id', '=', $event->userID)
+    // Check if user exists locally
+    $existing = \Civi\Api4\User::get(FALSE)
+      ->addWhere('username', '=', $username)
+      ->addSelect('id')
+      ->execute()
+      ->first();
+
+    if ($existing) {
+      // User exists, check if they have a password hash
+      $existing = \Civi\Api4\User::get(FALSE)
+        ->addWhere('id', '=', $existing['id'])
         ->addSelect('hashed_password')
         ->execute()
         ->first();
-      if ($user && !empty($user['hashed_password'])) {
+
+      if (!empty($existing['hashed_password'])) {
+        // Already has local password, nothing to do
         return;
       }
     }
 
+    // Try LDAP auth
     $ldap = new CRM_DeCipicoSaldap_Ldap();
     $ldapAttrs = $ldap->authenticate($username, $password);
 
@@ -81,13 +94,12 @@ class CRM_DeCipicoSaldap_LdapAuthenticator extends AutoService implements EventS
       return;
     }
 
-    // This creates or updates the local user with the password hash,
-    // so the subsequent Security::checkPassword() call will succeed.
+    // Create or update local user with password hash
     $ldap->findOrCreateUser($username, $ldapAttrs, $password);
   }
 
   /**
-   * Shared LDAP auth logic: authenticate, create/update user, accept credential.
+   * Shared LDAP auth logic.
    */
   private function tryLdapAndAccept(string $username, string $password, ?CheckCredentialEvent $check = NULL): void {
     $ldap = new CRM_DeCipicoSaldap_Ldap();
