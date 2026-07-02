@@ -101,9 +101,9 @@ services: {  }
           sh "docker exec -u 0:0 -e CIVICRM_SETTINGS=${ciSettings} -w /buildkit/build/${buildName}/web saldap-app-${BUILD_NUMBER} cv ext:enable de_cipico_saldap"
 
           echo '=== Running PHPUnit tests ==='
-          sh "docker exec -u 0:0 -e CIVICRM_SETTINGS=${ciSettings} -e CIVICRM_UF=UnitTests -w ${extDir} saldap-app-${BUILD_NUMBER} php /buildkit/extern/phpunit8/phpunit8.phar --configuration ${extDir}/phpunit.xml.dist ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${WORKSPACE}/saldap-test-report.xml"
+          sh "docker exec -u 0:0 -e CIVICRM_SETTINGS=${ciSettings} -e CIVICRM_UF=UnitTests -w ${extDir} saldap-app-${BUILD_NUMBER} php /buildkit/extern/phpunit8/phpunit8.phar --verbose --configuration ${extDir}/phpunit.xml.dist ${extDir}/tests/phpunit/Api4/SaldapTest.php --log-junit ${WORKSPACE}/saldap-test-report.xml 2>&1"
 
-          echo '=== Tests completed successfully ==='
+          echo '=== Tests completed ==='
         }
         catch (Exception e) {
           echo "Test stage failed: ${e.message}"
