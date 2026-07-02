@@ -112,8 +112,13 @@ services: {  }
           }
           else {
             echo '=== Using cached Docker image (cache HIT) ==='
-            // Image already has civibuild done, just restore DB snapshots
-            sh "${dockerPrefix} civibuild restore ${cachedBuildName} --force"
+            // Verify cached image has the build
+            sh "${dockerPrefix} ls -la /buildkit/build/${cachedBuildName}/web/private/civicrm.settings.php 2>&1"
+            sh "${dockerPrefix} ls -la /buildkit/build/${cachedBuildName}.sh 2>&1"
+            sh "${dockerPrefix} ls -la /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz 2>&1"
+            // Restore DB snapshots
+            sh "${dockerPrefix} civibuild restore ${cachedBuildName} --force 2>&1"
+            echo '=== DB restore completed ==='
           }
 
           def ciSettings = "${buildDir}/web/private/civicrm.settings.php"
