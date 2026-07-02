@@ -136,7 +136,7 @@ foreach (['CMS_DB_DSN', 'CIVI_DB_DSN', 'TEST_DB_DSN'] as \$k) {
 \$pdo->exec('FLUSH PRIVILEGES');
 echo "CIVI_DB=\$dbName\n";
 SCRIPT"""
-            sh "CIVI_DB=\$(docker exec saldap-app-${BUILD_NUMBER} php -r 'require \"${buildDir}/web/private/civicrm.settings.php\"; echo ltrim(parse_url(\$GLOBALS[\"_CV\"][\"CIVI_DB_DSN\"])[\"path\"], \"/\");') && docker exec saldap-app-${BUILD_NUMBER} zcat /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz | docker exec -i saldap-mysql-${BUILD_NUMBER} mysql -u root -pbuildkit \"\$CIVI_DB\""
+            sh "CIVI_DB=\$(docker exec saldap-app-${BUILD_NUMBER} grep 'CIVI_DB_DSN' ${buildDir}/web/private/civicrm.settings.php | awk -F/ '{print \$4}' | cut -d? -f1) && docker exec saldap-app-${BUILD_NUMBER} zcat /buildkit/app/snapshot/${cachedBuildName}/civi.sql.gz | docker exec -i saldap-mysql-${BUILD_NUMBER} mysql -u root -pbuildkit \"\$CIVI_DB\""
             echo 'Restore complete'
           }
 
