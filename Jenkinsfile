@@ -108,24 +108,21 @@ services: {  }
 
           sh "${dockerPrefix} git config --global --add safe.directory '*'"
 
-          if (!cacheHit) {
-            echo '=== Creating CiviCRM build (cache MISS) ==='
-            sh "${dockerPrefix} civibuild create ${cachedBuildName} --type standalone-clean --civi-ver ${env.CIVICRM_VERSION} --url http://localhost --force"
+          // Create build (fast with git + composer cache volumes)
+          echo '=== Creating CiviCRM build ==='
+          sh "${dockerPrefix} civibuild create ${cachedBuildName} --type standalone-clean --civi-ver ${env.CIVICRM_VERSION} --url http://localhost --force"
 
-            echo '=== Saving build cache ==='
+          if (!cacheHit) {
+            echo '=== Saving cache (config + DB snapshots only) ==='
             sh "${dockerPrefix} mkdir -p ${cacheDir}"
-            sh "${dockerPrefix} tar czf ${cacheDir}/build.tar.gz -C /buildkit/build ${cachedBuildName}"
-            sh "${dockerPrefix} tar czf ${cacheDir}/buildcfg.tar.gz -C /buildkit . build/${cachedBuildName}.sh"
+            sh "${dockerPrefix} cp /buildkit/build/${cachedBuildName}.sh ${cacheDir}/"
             sh "${dockerPrefix} tar czf ${cacheDir}/snapshots.tar.gz -C /buildkit/app/snapshot ${cachedBuildName}"
           }
           else {
-            echo '=== Restoring cached CiviCRM build (cache HIT) ==='
-            sh "${dockerPrefix} mkdir -p /buildkit/build /buildkit/app/snapshot"
-            sh "${dockerPrefix} tar xzf ${cacheDir}/build.tar.gz -C /buildkit/build"
-            sh "${dockerPrefix} tar xzf ${cacheDir}/buildcfg.tar.gz -C /buildkit"
+            echo '=== Restoring config + DB snapshots from cache ==='
+            sh "${dockerPrefix} cp ${cacheDir}/${cachedBuildName}.sh /buildkit/build/"
             sh "${dockerPrefix} tar xzf ${cacheDir}/snapshots.tar.gz -C /buildkit/app/snapshot"
-
-            echo '=== Restoring DB from cached snapshots ==='
+            echo '=== Restoring cached DB ==='
             sh "${dockerPrefix} civibuild restore ${cachedBuildName} --force"
           }
 
