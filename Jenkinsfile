@@ -10,8 +10,10 @@ properties([
 ])
 
 timestamps {
-  timeout(time: 30, unit: 'MINUTES') {
-    node('master') {
+    timeout(time: 30, unit: 'MINUTES') {
+      // PHP linting and integration tests use Docker throughout. Run the
+      // complete pipeline on the isolated Docker/DinD agent.
+      node('container-build') {
       stage('Checkout') {
         checkout scm
       }
